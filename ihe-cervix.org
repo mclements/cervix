@@ -1,0 +1,795 @@
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://www.pirilampo.org/styles/readtheorg/css/htmlize.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://www.pirilampo.org/styles/readtheorg/css/readtheorg.css"/>
+
+#+HTML_HEAD: <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+#+HTML_HEAD: <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+#+HTML_HEAD: <script type="text/javascript" src="http://www.pirilampo.org/styles/lib/js/jquery.stickytableheaders.js"></script>
+#+HTML_HEAD: <script type="text/javascript" src="http://www.pirilampo.org/styles/readtheorg/js/readtheorg.js"></script>
+#+HTML_HEAD: <style type="text/css">.abstract {max-width: 30em; margin-left: auto; margin-right: auto;}</style>
+
+#+TITLE: Health economic assessment of the Swedish cervical screening guidelines: a reconstruction
+#+AUTHOR: Mark Clements
+#+OPTIONS: toc:t
+
+#+PROPERTY: header-args:R+ :session *R*
+
+:PROPERTIES:
+:cache: yes
+:END:
+
+* Screening scenarios
+
+#+CAPTION: Screening frequency and test method for two screening strategies, by age groups
+#+NAME: tab-scenarios
+| LowerAge | UpperAge | Scenario | Test     | Frequency |
+|----------+----------+----------+----------+-----------|
+|       23 |       29 | Cytology | Cytology |         3 |
+|       23 |       29 | HPV      | Cytology |         3 |
+|       30 |       49 | Cytology | Cytology |         3 |
+|       30 |       49 | HPV      | HPV      |         3 |
+|       50 |       64 | Cytology | Cytology |         5 |
+|       50 |       64 | HPV      | HPV      |         7 |
+|       65 |       70 | HPV      | HPV      |         7 |
+
+
+ + The model is implemented assuming that the proportion screened is 1/Frequency*0.8, with 80% /compliance/.
+
+#+BEGIN_SRC R :var table=tab-scenarios :results output raw :exports both
+require(ascii)
+screeningCompliance = 0.8
+table$screeningProbability = 1/table$Frequency*screeningCompliance
+print(ascii(table), type="org")
+#+END_SRC
+
+#+CAPTION: Screening frequency and test method for two screening strategies with probabilities, by age groups
+#+RESULTS:
+Loading required package: ascii
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called ‘ascii’
+Error in ascii(table) : could not find function "ascii"
+
+
+* Scenario: primary cytology screening
+
+#+CAPTION: Cytology screening proportions for low grade and high grade cytology
+#+NAME: tab-cytology-proportions
+| LowerAge | UpperAge | LowGrade | HighGrade |
+|----------+----------+----------+-----------|
+|       23 |       29 |    0.050 |     0.027 |
+|       30 |       49 |    0.021 |     0.011 |
+|       50 |       64 |    0.012 |     0.005 |
+
+ + For a positive low-grade cytology test, there is assumed to be a subsequent HPV test.
+
+#+CAPTION: For low-grade cytology, the proportion of HPV tests that are positive
+#+NAME: tab-low-grade-pr-hpv-positive
+| LowerAge | UpperAge | PrHPVPositive |
+|----------+----------+---------------|
+|       23 |       29 |         0.847 |
+|       30 |       49 |         0.658 |
+|       50 |       64 |         0.430 |
+
+ + For a positive HPV test, a woman is referred to a colposcopy.
+ + For a negative HPV test, a woman is modelled as returning to routine screening (?).
+
+
+
+* Scenario: primary HPV screening
+
+#+CAPTION: Proportion of HPV tests that are positive, primary HPV screening
+#+NAME: tab-primary-hpv
+| LowerAge | UpperAge | PrHPVPositive | PrCytoPosGivenHPVPos |
+|----------+----------+---------------+----------------------|
+|       30 |       49 |         0.068 |                0.243 |
+|       50 |       70 |         0.052 |                0.341 |
+
+#+BEGIN_SRC R :var table=tab-cytology-proportions
+pLowGradeGivenCytoPos = with(table, data.frame(LowerAge,UpperAge,pLowGradeGivenCytoPos=LowGrade/(LowGrade+HighGrade)))
+#+END_SRC
+
+#+RESULTS:
+| 23 | 29 | 0.649350649350649 |
+| 30 | 49 |           0.65625 |
+| 50 | 64 | 0.705882352941176 |
+
+ + If the follow-up cytology test is negative, then there is a new HPV test in /three years/. It is assumed that 25% of HPV-positive women aged 30--70 years with negative cytology will be HPV positive after three years.
+ + If the follow-up cytology test is positive, then the woman is referred to colposcopy.
+
+
+* Cervical cancer incidence and mortality
+
+ + The model assumes that cervical cancer incidence and mortality under the Primary Cytological Screening scenario are as observed today. Rates are reported by one-year age groups using incidence data from 2003--2012 and mortality data from 2004--2013.
+ + The one-year age groups are not available from Socialstyrelsen's online Statistics Database.
+
+#+CAPTION: Relative impact on incidence and mortality for cervical cancer comparing primary HPV screening with primary cytological screening
+#+NAME: tab-primary-hpv
+| LowerAge | UpperAge | RRincidence | RRmortality |
+|----------+----------+-------------+-------------|
+|       23 |       29 |        1.00 |        1.00 |
+|       30 |       49 |        0.84 |        0.84 |
+|       50 |       64 |        0.84 |        0.84 |
+|       65 |       70 |        0.25 |        0.25 |
+
+ + For women who are not screened and who develop cancer, the authors assumed that there would be an average of 13 years from precursor to clinical detection of cancer. (It is not immediately obvious how this was modelled. It is also not entirely clear what is implied here.)
+ + Death from cancer is assumed to happen five years after a cancer diagnosis.
+
+
+#+CAPTION: Cervical cancer incidence rates per 100,000, by age groups and calendar period, 2005--2014
+#+NAME: tab-incidence-rates
+|   Age |  2014 |  2013 |  2012 |  2011 |  2010 |  2009 |  2008 |  2007 |  2006 |  2005 |
+|-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------|
+|    0- |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |
+|    5- |  0.00 |  0.00 |  0.38 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |
+|   10- |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |
+|   15- |  0.39 |  0.00 |  0.00 |  0.00 |  0.33 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |
+|   20- |  4.28 |  3.37 |  3.42 |  2.23 |  3.31 |  1.73 |  1.08 |  2.24 |  1.92 |  2.73 |
+|   25- | 13.99 | 12.22 | 10.23 |  8.74 |  9.27 |  9.40 |  7.70 | 11.12 |  8.96 |  5.61 |
+|   30- | 21.02 | 18.20 | 18.42 | 13.67 | 15.48 | 16.13 | 19.75 | 13.65 | 14.44 | 15.30 |
+|   35- | 24.19 | 19.60 | 23.24 | 19.04 | 16.66 | 15.79 | 19.47 | 16.18 | 15.73 | 16.47 |
+|   40- | 22.60 | 18.97 | 20.49 | 14.09 | 14.25 | 13.43 | 19.44 | 17.26 | 14.56 | 15.34 |
+|   45- | 18.06 | 13.49 | 13.38 | 12.80 | 14.82 |  9.00 | 13.00 | 12.12 | 12.15 | 11.44 |
+|   50- | 10.28 |  9.20 |  8.96 | 11.41 | 12.79 | 13.51 | 13.18 | 14.93 | 13.23 | 10.77 |
+|   55- | 10.45 |  9.07 | 10.13 | 10.17 |  7.35 |  9.69 | 14.91 | 13.25 | 12.27 | 12.31 |
+|   60- |  7.74 | 10.69 | 11.47 | 12.50 |  8.37 | 12.74 | 11.52 | 13.09 | 10.24 | 11.22 |
+|   65- | 10.54 |  8.60 |  9.14 |  7.77 | 10.12 | 15.15 |  5.50 | 12.44 | 14.72 |  8.48 |
+|   70- | 14.33 | 10.73 | 14.12 | 11.69 | 14.48 | 16.93 |  8.44 | 11.28 | 15.13 | 17.74 |
+|   75- | 18.11 | 14.57 | 11.28 | 11.96 | 14.31 | 15.95 | 13.99 | 19.56 | 15.96 | 14.67 |
+|   80- | 12.09 | 16.88 | 16.00 | 15.21 | 19.90 | 16.31 | 18.80 | 18.57 | 16.24 | 15.82 |
+|   85+ | 15.42 | 12.49 | 14.87 | 11.31 | 14.39 | 11.51 | 15.95 | 11.79 | 12.05 | 16.48 |
+| Total | 11.31 |  9.75 | 10.22 |  8.92 |  9.39 |  9.52 | 10.10 | 10.21 |  9.62 |  9.40 |
+
+
+#+CAPTION: Cervical cancer mortality rates per 100,000, by age groups and calendar period, 2005--2014
+#+NAME: tab-cervical-mortality-rates
+|   Age |  2014 |  2013 |  2012 |  2011 |  2010 |  2009 |  2008 |  2007 |  2006 |  2005 |
+|-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------|
+|    0- |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |
+|    5- |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |
+|   10- |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |
+|   15- |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |
+|   20- |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.00 |  0.77 |  0.39 |
+|   25- |  0.64 |  0.33 |  0.68 |  1.75 |  0.00 |  0.36 |  0.73 |  1.11 |  0.00 |  0.00 |
+|   30- |  1.69 |  1.72 |  0.70 |  1.75 |  1.06 |  0.70 |  1.04 |  1.02 |  2.02 |  0.00 |
+|   35- |  1.34 |  1.66 |  0.65 |  2.58 |  1.28 |  2.58 |  1.30 |  3.24 |  2.25 |  0.95 |
+|   40- |  2.83 |  3.48 |  1.26 |  2.50 |  2.48 |  1.53 |  1.82 |  2.16 |  2.85 |  1.96 |
+|   45- |  0.90 |  3.60 |  2.43 |  3.75 |  2.90 |  2.00 |  2.74 |  2.42 |  1.39 |  2.77 |
+|   50- |  4.31 |  3.41 |  4.48 |  3.11 |  1.73 |  2.42 |  6.24 |  3.47 |  1.39 |  4.86 |
+|   55- |  4.18 |  2.09 |  4.19 |  3.16 |  5.25 |  5.19 |  3.39 |  5.63 |  4.20 |  4.73 |
+|   60- |  0.70 |  5.52 |  1.69 |  2.96 |  6.12 |  4.78 |  3.20 |  5.89 |  3.76 |  4.70 |
+|   65- |  4.61 |  6.28 |  4.40 |  3.89 |  3.37 |  6.78 |  6.34 |  5.33 |  6.44 |  6.12 |
+|   70- |  5.48 |  6.71 |  6.59 |  9.26 |  8.49 |  9.23 |  4.22 |  6.98 |  5.94 |  6.99 |
+|   75- |  9.62 | 11.66 |  7.13 |  3.59 |  7.75 |  7.68 | 10.49 | 13.81 |  6.27 | 10.16 |
+|   80- | 11.38 | 18.29 |  9.74 | 13.13 | 14.41 | 13.59 | 14.77 | 12.60 |  9.75 | 15.19 |
+|   85+ | 13.05 | 11.90 | 11.30 | 11.31 |  9.59 | 18.79 |  9.20 | 11.79 | 11.41 |  5.27 |
+| Total |  2.72 |  3.45 |  2.51 |  2.93 |  2.95 |  3.38 |  3.00 |  3.52 |  2.73 |  2.99 |
+
+** TODO obtain incidence rates for 2007--2013 for the incidence of CIN 1--3 by one-year age groups.
+
+#+CAPTION: Relative effects on the incidence of CIN 1--3 for the HPV strategy compared with the cytology strategy, by age group.
+#+NAME: tab-effects-cin
+| AgeLower | AgeUpper | CIN1 | CIN2 | CIN3 |
+|----------+----------+------+------+------|
+|       23 |       29 | 1.00 | 1.00 | 1.00 |
+|       30 |       49 | 1.19 | 1.19 | 1.09 |
+|       50 |       64 | 1.19 | 1.19 | 1.09 |
+|       65 |       70 | 3.00 | 3.00 | 3.00 |
+
+** TODO Obtain one-year rates for cervical cancer incidence and mortality.
+
+
+* Health effects
+
+Source: Burström, K, Rehnberg, C. Hälsorelaterad livskvalitet i Stockholms län 2002. Rapport 2006:1: Enheten för Socialmedicin och Hälsoekonomi, Centrum för folkhälsa; 2006. This is available from [[http://libris.kb.se/bib/10708053][Stockholm Universitet library]] but it was difficult to find [[https://www.yumpu.com/xx/document/view/41273884/halsorelaterad-livskvalitet-i-stockholms-lan-2002-2006-1pdf][on-line]].
+
+#+CAPTION: EQ-5D index utilities (Burström and Rehnberg, 2006).
+#+NAME: tab-background-utilities
+| LowerAge | UpperAge | Males | Females |
+|----------+----------+-------+---------|
+|        0 |       17 |  1.00 |    1.00 |
+|       18 |       24 |  0.89 |    0.83 |
+|       25 |       29 |  0.89 |    0.84 |
+|       30 |       34 |  0.88 |    0.85 |
+|       35 |       39 |  0.87 |    0.83 |
+|       40 |       44 |  0.84 |    0.81 |
+|       45 |       49 |  0.84 |    0.80 |
+|       50 |       54 |  0.83 |    0.78 |
+|       55 |       59 |  0.83 |    0.77 |
+|       60 |       64 |  0.82 |    0.77 |
+|       65 |       69 |  0.83 |    0.79 |
+|       70 |       74 |  0.81 |    0.75 |
+|       75 |       79 |  0.79 |    0.73 |
+|       80 |       84 |  0.74 |    0.69 |
+
+
+#+BEGIN_SRC R :var util=tab-background-utilities :exports code
+utilFun = function(x,sex="Females") util[[sex]][findInterval(x, util$LowerAge)]
+#+END_SRC
+
+#+RESULTS:
+
+
+#+CAPTION: Loss of QALYs at different events and stages of disease
+#+NAME: tab-event-utilities
+| Measure                         | QALY loss |
+|---------------------------------+-----------|
+| Invitation                      |         0 |
+| Pap smear                       |         0 |
+| Colpsocopy                      |    -0.005 |
+| CIN 1 diagnosis and treatment   |    -0.006 |
+| CIN 2/3 diagnosis and treatment |    -0.009 |
+| Cancer diagnosis and treatment  |    -0.080 |
+| Metastatic cancer               |    -0.340 |
+
+Loss of life for the cancer deaths was calculated based on the life expectancy calculated at the age of death. This should be adjust for the average age-specific utilities and discounted.
+
+#+CAPTION: Swedish mortality rates per 1000 by one-year age groups, females. 
+#+ATTR_LATEX: :environment longtable
+#+NAME: tab-mortality-rates
+| Age |   2004 |   2005 |   2006 |   2007 |   2008 |   2009 |   2010 |   2011 |   2012 |   2013 |
+|-----+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------|
+|   0 |   2.92 |   2.33 |   2.57 |   2.30 |   2.47 |   2.40 |   2.38 |   1.96 |   2.29 |   2.50 |
+|   1 |   0.27 |   0.37 |   0.30 |   0.33 |   0.23 |   0.24 |   0.28 |   0.21 |   0.12 |   0.13 |
+|   2 |   0.11 |   0.19 |   0.14 |   0.16 |   0.14 |   0.17 |   0.11 |   0.04 |   0.11 |   0.11 |
+|   3 |   0.09 |   0.13 |   0.12 |   0.16 |   0.06 |   0.17 |   0.09 |   0.09 |   0.11 |   0.09 |
+|   4 |   0.09 |   0.09 |   0.17 |   0.12 |   0.14 |   0.02 |   0.08 |   0.07 |   0.07 |   0.11 |
+|   5 |   0.16 |   0.04 |   0.04 |   0.11 |   0.10 |   0.08 |   0.06 |   0.08 |   0.04 |   0.07 |
+|   6 |   0.16 |   0.11 |   0.07 |   0.13 |   0.02 |   0.06 |   0.08 |   0.04 |   0.02 |   0.09 |
+|   7 |   0.04 |   0.07 |   0.00 |   0.04 |   0.00 |   0.15 |   0.10 |   0.08 |   0.10 |   0.09 |
+|   8 |   0.12 |   0.04 |   0.09 |   0.09 |   0.09 |   0.06 |   0.12 |   0.18 |   0.10 |   0.06 |
+|   9 |   0.07 |   0.08 |   0.09 |   0.09 |   0.02 |   0.04 |   0.02 |   0.12 |   0.00 |   0.02 |
+|  10 |   0.09 |   0.07 |   0.06 |   0.08 |   0.11 |   0.07 |   0.04 |   0.15 |   0.08 |   0.06 |
+|  11 |   0.07 |   0.02 |   0.09 |   0.02 |   0.06 |   0.09 |   0.02 |   0.11 |   0.08 |   0.06 |
+|  12 |   0.05 |   0.08 |   0.05 |   0.06 |   0.14 |   0.02 |   0.15 |   0.06 |   0.11 |   0.04 |
+|  13 |   0.14 |   0.15 |   0.07 |   0.05 |   0.11 |   0.04 |   0.06 |   0.04 |   0.17 |   0.04 |
+|  14 |   0.11 |   0.08 |   0.05 |   0.08 |   0.09 |   0.18 |   0.12 |   0.08 |   0.11 |   0.04 |
+|  15 |   0.17 |   0.18 |   0.27 |   0.21 |   0.13 |   0.17 |   0.11 |   0.12 |   0.14 |   0.08 |
+|  16 |   0.16 |   0.10 |   0.15 |   0.24 |   0.11 |   0.24 |   0.20 |   0.14 |   0.21 |   0.18 |
+|  17 |   0.13 |   0.14 |   0.25 |   0.23 |   0.27 |   0.24 |   0.23 |   0.22 |   0.21 |   0.13 |
+|  18 |   0.40 |   0.15 |   0.14 |   0.12 |   0.26 |   0.19 |   0.27 |   0.30 |   0.18 |   0.21 |
+|  19 |   0.33 |   0.24 |   0.29 |   0.24 |   0.23 |   0.19 |   0.17 |   0.20 |   0.14 |   0.16 |
+|  20 |   0.20 |   0.31 |   0.32 |   0.27 |   0.24 |   0.25 |   0.22 |   0.27 |   0.17 |   0.17 |
+|  21 |   0.32 |   0.38 |   0.42 |   0.37 |   0.18 |   0.19 |   0.29 |   0.19 |   0.29 |   0.26 |
+|  22 |   0.32 |   0.24 |   0.23 |   0.15 |   0.20 |   0.23 |   0.23 |   0.24 |   0.25 |   0.25 |
+|  23 |   0.21 |   0.27 |   0.35 |   0.23 |   0.26 |   0.23 |   0.19 |   0.21 |   0.16 |   0.29 |
+|  24 |   0.15 |   0.15 |   0.27 |   0.19 |   0.28 |   0.22 |   0.31 |   0.32 |   0.19 |   0.28 |
+|  25 |   0.31 |   0.21 |   0.24 |   0.39 |   0.32 |   0.28 |   0.30 |   0.32 |   0.26 |   0.32 |
+|  26 |   0.25 |   0.27 |   0.24 |   0.20 |   0.24 |   0.11 |   0.29 |   0.29 |   0.17 |   0.36 |
+|  27 |   0.24 |   0.27 |   0.13 |   0.20 |   0.31 |   0.31 |   0.20 |   0.28 |   0.24 |   0.36 |
+|  28 |   0.29 |   0.22 |   0.26 |   0.15 |   0.40 |   0.25 |   0.29 |   0.25 |   0.21 |   0.32 |
+|  29 |   0.33 |   0.31 |   0.30 |   0.26 |   0.40 |   0.23 |   0.21 |   0.41 |   0.19 |   0.24 |
+|  30 |   0.29 |   0.46 |   0.37 |   0.26 |   0.28 |   0.27 |   0.23 |   0.24 |   0.24 |   0.31 |
+|  31 |   0.25 |   0.47 |   0.32 |   0.33 |   0.31 |   0.18 |   0.29 |   0.31 |   0.36 |   0.38 |
+|  32 |   0.33 |   0.27 |   0.48 |   0.20 |   0.33 |   0.30 |   0.32 |   0.34 |   0.33 |   0.24 |
+|  33 |   0.38 |   0.23 |   0.43 |   0.46 |   0.28 |   0.33 |   0.44 |   0.46 |   0.32 |   0.25 |
+|  34 |   0.35 |   0.35 |   0.42 |   0.31 |   0.36 |   0.36 |   0.36 |   0.45 |   0.39 |   0.30 |
+|  35 |   0.58 |   0.40 |   0.43 |   0.45 |   0.37 |   0.31 |   0.28 |   0.39 |   0.54 |   0.47 |
+|  36 |   0.41 |   0.53 |   0.55 |   0.55 |   0.34 |   0.48 |   0.45 |   0.49 |   0.37 |   0.36 |
+|  37 |   0.47 |   0.53 |   0.49 |   0.55 |   0.36 |   0.40 |   0.38 |   0.41 |   0.45 |   0.43 |
+|  38 |   0.62 |   0.64 |   0.61 |   0.54 |   0.66 |   0.69 |   0.46 |   0.52 |   0.74 |   0.48 |
+|  39 |   0.54 |   0.64 |   0.49 |   0.59 |   0.55 |   0.66 |   0.57 |   0.61 |   0.71 |   0.58 |
+|  40 |   0.77 |   0.63 |   0.71 |   0.71 |   0.68 |   0.76 |   0.60 |   0.37 |   0.42 |   0.66 |
+|  41 |   0.75 |   0.73 |   0.74 |   0.60 |   0.72 |   0.57 |   0.58 |   0.57 |   0.65 |   0.69 |
+|  42 |   0.82 |   0.76 |   0.65 |   0.85 |   0.81 |   0.76 |   0.63 |   0.80 |   0.92 |   0.77 |
+|  43 |   0.70 |   1.03 |   0.89 |   0.73 |   0.95 |   0.82 |   0.81 |   0.64 |   0.65 |   0.66 |
+|  44 |   1.22 |   0.82 |   1.11 |   1.15 |   1.11 |   1.11 |   0.73 |   0.89 |   0.75 |   0.84 |
+|  45 |   1.07 |   1.14 |   1.08 |   1.16 |   1.20 |   1.22 |   0.90 |   1.02 |   1.13 |   1.11 |
+|  46 |   1.21 |   1.35 |   1.17 |   1.27 |   0.88 |   1.39 |   1.00 |   1.15 |   1.30 |   1.13 |
+|  47 |   1.54 |   1.12 |   1.24 |   1.45 |   1.28 |   1.27 |   1.14 |   1.29 |   1.42 |   1.23 |
+|  48 |   1.89 |   1.61 |   1.80 |   1.46 |   1.41 |   1.54 |   1.42 |   1.06 |   1.17 |   1.28 |
+|  49 |   1.80 |   1.76 |   1.73 |   1.83 |   1.86 |   1.37 |   1.62 |   1.40 |   1.40 |   1.35 |
+|  50 |   2.28 |   2.34 |   1.85 |   1.95 |   1.90 |   1.53 |   1.68 |   2.00 |   2.08 |   1.30 |
+|  51 |   1.92 |   2.43 |   2.13 |   2.14 |   2.18 |   2.24 |   1.79 |   1.72 |   1.83 |   2.06 |
+|  52 |   2.29 |   2.56 |   2.45 |   2.34 |   2.45 |   2.28 |   2.36 |   1.68 |   1.92 |   2.24 |
+|  53 |   2.63 |   2.71 |   2.68 |   2.54 |   2.57 |   2.95 |   2.23 |   2.62 |   2.50 |   2.43 |
+|  54 |   2.97 |   2.93 |   2.91 |   2.45 |   2.47 |   2.87 |   2.21 |   2.57 |   2.74 |   2.43 |
+|  55 |   3.07 |   3.43 |   2.83 |   2.63 |   3.42 |   2.98 |   2.42 |   3.23 |   2.75 |   2.73 |
+|  56 |   3.56 |   3.85 |   3.90 |   3.40 |   3.22 |   3.13 |   3.09 |   3.05 |   2.87 |   3.04 |
+|  57 |   4.09 |   4.41 |   3.56 |   3.52 |   3.89 |   3.22 |   3.29 |   3.32 |   3.52 |   3.09 |
+|  58 |   4.43 |   4.00 |   4.12 |   4.29 |   3.78 |   4.20 |   4.04 |   3.49 |   3.31 |   3.52 |
+|  59 |   4.81 |   4.84 |   4.63 |   4.48 |   4.05 |   4.29 |   4.20 |   3.60 |   3.85 |   4.66 |
+|  60 |   5.78 |   5.29 |   5.32 |   4.81 |   4.90 |   4.77 |   4.93 |   4.89 |   4.42 |   3.74 |
+|  61 |   5.56 |   5.84 |   5.38 |   4.96 |   5.31 |   4.81 |   5.23 |   4.66 |   4.85 |   4.47 |
+|  62 |   6.61 |   6.09 |   6.55 |   5.83 |   5.58 |   6.04 |   5.62 |   5.11 |   5.17 |   5.38 |
+|  63 |   6.87 |   7.40 |   6.40 |   6.44 |   6.22 |   6.23 |   6.13 |   5.84 |   5.89 |   6.04 |
+|  64 |   7.21 |   7.11 |   7.74 |   7.55 |   7.83 |   7.51 |   7.69 |   7.06 |   6.30 |   6.67 |
+|  65 |   7.56 |   8.83 |   7.99 |   9.04 |   7.69 |   7.80 |   8.01 |   7.11 |   7.66 |   7.61 |
+|  66 |   9.05 |   9.32 |   8.26 |   8.79 |   9.40 |   7.88 |   7.99 |   7.68 |   8.36 |   8.37 |
+|  67 |   9.26 |   9.72 |   9.18 |   9.95 |   9.27 |   9.70 |   9.05 |   8.52 |   8.44 |   8.67 |
+|  68 |  10.21 |  10.61 |  10.19 |   9.92 |  10.92 |   9.28 |  10.00 |   8.94 |  10.77 |  10.57 |
+|  69 |  12.46 |  12.04 |  10.98 |  11.64 |  11.04 |  11.50 |  11.14 |  10.86 |  11.19 |   9.93 |
+|  70 |  13.83 |  13.47 |  13.56 |  12.12 |  12.01 |  12.66 |  11.96 |  11.54 |  11.53 |  11.71 |
+|  71 |  14.27 |  13.70 |  13.86 |  13.89 |  12.98 |  13.28 |  12.51 |  13.81 |  13.03 |  12.48 |
+|  72 |  16.40 |  16.50 |  15.59 |  16.22 |  15.20 |  15.24 |  14.69 |  15.54 |  14.15 |  13.20 |
+|  73 |  18.40 |  16.91 |  17.20 |  17.34 |  15.75 |  18.00 |  16.94 |  15.69 |  16.64 |  17.38 |
+|  74 |  20.86 |  20.20 |  20.51 |  18.33 |  18.54 |  19.33 |  19.50 |  17.85 |  18.12 |  17.90 |
+|  75 |  22.38 |  21.54 |  21.21 |  21.95 |  21.19 |  20.22 |  20.63 |  20.38 |  21.12 |  19.47 |
+|  76 |  24.41 |  25.27 |  24.28 |  25.07 |  23.52 |  22.27 |  23.18 |  23.13 |  23.77 |  23.61 |
+|  77 |  29.83 |  28.37 |  27.65 |  28.22 |  28.23 |  25.93 |  26.37 |  24.32 |  25.90 |  25.65 |
+|  78 |  31.09 |  32.70 |  32.70 |  31.03 |  29.19 |  30.25 |  30.57 |  27.16 |  30.41 |  29.19 |
+|  79 |  38.12 |  35.41 |  36.09 |  36.71 |  34.29 |  33.22 |  34.55 |  33.97 |  32.57 |  32.34 |
+|  80 |  40.00 |  41.48 |  38.33 |  43.64 |  38.54 |  38.95 |  37.05 |  37.98 |  37.92 |  40.24 |
+|  81 |  47.11 |  47.25 |  46.93 |  44.23 |  46.03 |  42.32 |  44.16 |  44.03 |  43.63 |  42.48 |
+|  82 |  55.44 |  52.42 |  51.76 |  55.17 |  52.29 |  49.95 |  49.29 |  50.85 |  48.63 |  48.65 |
+|  83 |  60.92 |  63.90 |  59.81 |  59.80 |  59.59 |  58.26 |  57.62 |  55.46 |  58.44 |  56.63 |
+|  84 |  73.40 |  69.10 |  74.33 |  67.76 |  68.77 |  67.12 |  65.25 |  64.59 |  65.53 |  64.23 |
+|  85 |  78.49 |  79.60 |  78.43 |  81.02 |  80.10 |  76.03 |  74.43 |  73.89 |  77.84 |  70.94 |
+|  86 |  95.02 |  90.80 |  91.51 |  92.06 |  91.85 |  84.99 |  83.62 |  87.65 |  83.67 |  83.18 |
+|  87 | 104.55 | 104.43 |  97.95 | 108.51 | 101.59 | 103.76 |  99.70 |  96.24 | 100.14 |  95.52 |
+|  88 | 116.89 | 116.94 | 120.12 | 118.50 | 119.81 | 112.79 | 116.56 | 111.83 | 118.41 | 107.27 |
+|  89 | 138.68 | 133.67 | 132.22 | 134.86 | 128.43 | 132.68 | 127.09 | 130.17 | 129.06 | 127.72 |
+|  90 | 149.48 | 151.59 | 142.81 | 145.17 | 155.11 | 138.12 | 147.56 | 141.55 | 145.11 | 142.36 |
+|  91 | 170.60 | 172.49 | 176.00 | 171.82 | 173.06 | 158.13 | 161.52 | 163.42 | 157.84 | 166.92 |
+|  92 | 185.77 | 187.76 | 184.62 | 185.27 | 189.73 | 184.79 | 182.16 | 177.44 | 187.72 | 172.40 |
+|  93 | 201.77 | 203.86 | 202.51 | 212.76 | 207.51 | 203.82 | 202.67 | 201.16 | 201.63 | 200.71 |
+|  94 | 218.57 | 220.75 | 231.48 | 231.94 | 219.63 | 227.24 | 228.84 | 218.05 | 237.72 | 203.03 |
+|  95 | 236.15 | 238.42 | 246.92 | 250.07 | 248.76 | 240.06 | 238.57 | 239.10 | 245.63 | 242.21 |
+|  96 | 254.48 | 256.83 | 269.93 | 273.21 | 271.27 | 262.72 | 259.52 | 261.83 | 268.90 | 267.63 |
+|  97 | 273.52 | 275.96 | 294.37 | 297.77 | 295.09 | 286.83 | 281.60 | 286.04 | 293.67 | 295.08 |
+|  98 | 293.27 | 295.77 | 320.22 | 323.73 | 320.20 | 312.38 | 304.82 | 311.72 | 319.94 | 324.57 |
+|  99 | 313.68 | 316.25 | 347.45 | 351.06 | 346.58 | 339.34 | 329.13 | 338.85 | 347.65 | 356.08 |
+| 100 | 334.74 | 337.38 | 376.03 | 379.71 | 374.18 | 367.68 | 354.52 | 367.38 | 376.78 | 389.56 |
+| 101 | 356.46 | 359.16 | 405.88 | 409.61 | 402.95 | 397.33 | 380.95 | 397.25 | 407.25 | 424.91 |
+| 102 | 378.82 | 381.59 | 436.93 | 440.69 | 432.84 | 428.23 | 408.39 | 428.38 | 438.97 | 461.96 |
+| 103 | 401.85 | 404.67 | 469.08 | 472.85 | 463.76 | 460.26 | 436.79 | 460.68 | 471.84 | 500.50 |
+| 104 | 425.55 | 428.44 | 502.22 | 505.99 | 495.63 | 493.34 | 466.10 | 494.04 | 505.72 | 540.25 |
+| 105 | 449.96 | 452.92 | 536.22 | 539.95 | 528.34 | 527.31 | 496.29 | 528.29 | 540.46 | 580.87 |
+| 106 | 475.10 | 478.13 | 570.90 | 574.59 | 561.77 | 562.02 | 527.27 | 563.29 | 575.88 | 621.48 |
+| 107 | 500.99 | 504.10 | 606.08 | 609.70 | 595.77 | 597.28 | 558.97 | 598.83 | 611.75 | 659.15 |
+| 108 | 527.66 | 530.85 | 640.26 | 645.07 | 630.14 | 632.86 | 591.28 | 634.67 | 647.83 | 696.56 |
+| 109 | 555.12 | 558.38 | 673.72 | 680.42 | 664.68 | 668.51 | 624.07 | 670.54 | 683.82 | 733.31 |
+| 110 | 583.34 | 586.67 | 707.12 | 715.45 | 699.12 | 703.92 | 657.16 | 706.15 | 719.40 | 768.96 |
+Source: [[http://www.statistikdatabasen.scb.se/pxweb/sv/ssd/START__BE__BE0101__BE0101I/LivslangdEttariga/table/tableViewLayout1/?rxid=39e131eb-423a-4bfb-9d3b-c75cb6e238b9][SCB]].
+
+Let the mortality rate for one-year age interval $[i,i+1)$ be $h_i$, let survival to age $u$ be represented by $S(u)$ and let the discounting be represented by $(1+\gamma)^{-u}$, where $\gamma=0.03$. Then the conditional survival is $S(u|T>t)=\exp(\int_t^u h(v) dv)$ and the conditional discounted life expectancy is
+
+#+NAME: eqn:1
+\begin{align}
+E(T^*|T>t) &= \int_t^\infty \frac{S(v|T>t) dv}{(1+\gamma)^v} \\ \nonumber &= \sum_{i=t}^\infty \left(\frac{S(i|T>t)}{(1+\gamma)^i}-\frac{S(i+1|T>t)}{(1+\gamma)^{i+1}}\right)/(h_i+\log(1+\gamma))
+\end{align}
+
+Similarly, for age-specific utilities $U(v)$, we can calculate the conditional discounted expected utilities as 
+
+#+NAME: eqn:2
+\begin{align}
+E(U^*|T>t) &= \int_t^\infty \frac{S(v|T>t) U(v) dv}{(1+\gamma)^v} \\ \nonumber & = \sum_{i=t}^\infty \left(\frac{S(i|T>t)U(i)}{(1+\gamma)^i}-\frac{S(i+1|T>t)U(i)}{(1+\gamma)^{i+1}}\right)/(h_i+\log(1+\gamma))
+\end{align}
+
+# #+BEGIN_SRC axiom :exports results :results output
+# integrate(Si*exp(-λ*(u-i))/(1+γ)^u,u)
+# #+END_SRC
+
+# #+RESULTS:
+# : (5) -> integrate(Si*exp(-λ*(u-i))/(1+γ)^u,u)
+# : 
+# :                        (- u + i)λ
+# :                   Si %e
+# :    (5)  - ------------------------------
+# :                             u log(γ + 1)
+# :           (log(γ + 1) + λ)%e
+# :                                          Type: Union(Expression(Integer),...)
+# :  
+
+However, the expected years of life lost approach is implemented with discounting /from the date of death/. Revising Equations [[eqn:1][1]] and [[eqn:2][2]], we then have
+
+\begin{align*}
+E(T^*|T>t) &= \sum_{i=t}^\infty \left(\frac{S(i|T>t)}{(1+\gamma)^{i-t}}-\frac{S(i+1|T>t)}{(1+\gamma)^{i-t+1}}\right)/(h_i+\log(1+\gamma)) \\
+E(U^*|T>t) &= \sum_{i=t}^\infty \left(\frac{S(i|T>t)U(i)}{(1+\gamma)^{i-t}}-\frac{S(i+1|T>t)U(i)}{(1+\gamma)^{i-t+1}}\right)/(h_i+\log(1+\gamma))
+\end{align*}
+
+#+BEGIN_SRC R :var mort=tab-mortality-rates :exports both :results output graphics :file ihe-expected-utilites.png
+  ages = mort$Age
+  gamma = 0.03
+  discount = 1/(1+gamma)
+  hall = apply(mort[,-c(1,ncol(mort))],1,mean) / 1000
+  Sall = exp(-cumsum(hall))
+  print(sum(Sall)) # life expectancy
+  ## print(sum(discount^(ages+0.5)*S)) # approximate discounted life expectancy
+  ## print(sum((c(1,S[-length(S)])*discount^ages-S*discount^(ages+1))/(h+log(1+gamma)))) # analytical
+  dle = function(age,ages=0:110,h=hall,S=Sall) {
+      index = (ages>=age)
+      h = h[index]
+      S = exp(-cumsum(h))
+      ages = ages[index]
+      dages = ages - age # discount from the data of death - is this correct?
+      sum((c(1,S[-length(S)])*utilFun(ages)*discount^dages-S*utilFun(ages)*discount^(dages+1))/(h+log(1+gamma)))
+  }
+  dle = Vectorize(dle)
+  print(dle(60))
+  plot(0:100,dle(0:100),type="l",xlab="Age (years)", ylab="Conditional discounted life expectancy (years)")
+#+END_SRC
+
+#+RESULTS:
+[[file:ihe-expected-utilites.png]]
+
+
+
+** 
+
+#+CAPTION: Swedish population estimates by one-year age groups and by sex, 2012. 
+#+ATTR_LATEX: :environment longtable
+#+NAME: tab-populations-2012
+|  Age |   Males | Females |
+|------+---------+---------|
+|    0 | 29154.5 | 27589.0 |
+|    1 | 57709.0 | 55074.0 |
+|    2 | 60456.0 | 57277.0 |
+|    3 | 59039.0 | 55691.0 |
+|    4 | 58171.5 | 54673.0 |
+|    5 | 57474.5 | 54203.0 |
+|    6 | 57004.5 | 54006.5 |
+|    7 | 54815.5 | 52213.0 |
+|    8 | 55024.5 | 51971.0 |
+|    9 | 54001.5 | 51369.0 |
+|   10 | 52395.0 | 50033.0 |
+|   11 | 50590.5 | 47845.0 |
+|   12 | 50550.0 | 47634.0 |
+|   13 | 49196.0 | 46779.0 |
+|   14 | 50152.0 | 47009.5 |
+|   15 | 50655.5 | 47800.5 |
+|   16 | 53277.5 | 50469.5 |
+|   17 | 58007.0 | 54078.5 |
+|   18 | 62303.0 | 58815.5 |
+|   19 | 64793.5 | 61465.5 |
+|   20 | 67981.5 | 64101.0 |
+|   21 | 69417.5 | 65503.5 |
+|   22 | 69923.5 | 66760.5 |
+|   23 | 66624.5 | 63889.5 |
+|   24 | 65962.5 | 63142.5 |
+|   25 | 62917.5 | 61101.0 |
+|   26 | 63235.0 | 60388.5 |
+|   27 | 62790.5 | 59276.0 |
+|   28 | 60995.0 | 57537.5 |
+|   29 | 60056.5 | 56742.0 |
+|   30 | 60494.5 | 57286.0 |
+|   31 | 59916.0 | 57293.5 |
+|   32 | 61782.5 | 59079.5 |
+|   33 | 60333.5 | 57786.0 |
+|   34 | 58495.0 | 56228.5 |
+|   35 | 59634.5 | 57093.0 |
+|   36 | 60454.5 | 58142.5 |
+|   37 | 62770.5 | 60671.5 |
+|   38 | 65492.5 | 63411.0 |
+|   39 | 64521.0 | 62754.0 |
+|   40 | 65610.0 | 63809.5 |
+|   41 | 65649.5 | 63859.0 |
+|   42 | 63869.0 | 62448.5 |
+|   43 | 63136.0 | 61304.5 |
+|   44 | 65779.5 | 64127.0 |
+|   45 | 69564.5 | 66945.5 |
+|   46 | 70202.0 | 67449.5 |
+|   47 | 70248.0 | 67578.5 |
+|   48 | 69610.0 | 67642.0 |
+|   49 | 65342.5 | 62573.0 |
+|   50 | 61827.0 | 60117.0 |
+|   51 | 59804.0 | 58111.0 |
+|   52 | 58651.5 | 57673.5 |
+|   53 | 59118.0 | 57590.5 |
+|   54 | 58622.5 | 57423.0 |
+|   55 | 58803.5 | 58369.5 |
+|   56 | 59376.0 | 57879.5 |
+|   57 | 57706.0 | 57457.0 |
+|   58 | 56454.5 | 56064.0 |
+|   59 | 57753.0 | 57189.0 |
+|   60 | 56831.5 | 56758.0 |
+|   61 | 55813.5 | 56133.0 |
+|   62 | 58198.5 | 58135.5 |
+|   63 | 59631.5 | 60336.5 |
+|   64 | 61152.0 | 62279.5 |
+|   65 | 61395.5 | 62355.5 |
+|   66 | 61790.5 | 62481.5 |
+|   67 | 60820.0 | 61308.0 |
+|   68 | 59189.5 | 59653.5 |
+|   69 | 54346.5 | 55748.0 |
+|   70 | 49521.5 | 50309.5 |
+|   71 | 42704.5 | 44400.0 |
+|   72 | 39930.5 | 42040.0 |
+|   73 | 38992.5 | 41958.5 |
+|   74 | 36279.5 | 40110.5 |
+|   75 | 33541.5 | 37604.0 |
+|   76 | 31332.0 | 36203.5 |
+|   77 | 28989.5 | 33690.5 |
+|   78 | 26402.5 | 32581.5 |
+|   79 | 24913.0 | 31271.0 |
+|   80 | 24357.5 | 31513.0 |
+|   81 | 22547.0 | 30508.0 |
+|   82 | 21513.5 | 30019.0 |
+|   83 | 19066.0 | 27698.0 |
+|   84 | 18104.0 | 27156.5 |
+|   85 | 15640.0 | 24860.5 |
+|   86 | 14291.0 | 23530.0 |
+|   87 | 12786.0 | 21949.0 |
+|   88 | 10908.5 | 19930.5 |
+|   89 |  9589.5 | 17736.0 |
+|   90 |  7602.0 | 15334.5 |
+|   91 |  6611.5 | 14247.0 |
+|   92 |  5293.5 | 12377.5 |
+|   93 |  3371.0 |  8215.0 |
+|   94 |  2416.0 |  6296.0 |
+|   95 |  1735.0 |  5031.5 |
+|   96 |  1152.0 |  3615.0 |
+|   97 |   699.0 |  2566.0 |
+|   98 |   506.5 |  1923.5 |
+|   99 |   317.0 |  1293.0 |
+| 100+ |   391.0 |  2052.0 |
+
+
+We can now calculate the number of cervical cancer deaths and the years of life lost due to cervical cancer. In the absence of one-year data on the mortality rates, we can assume that the rates are piecewise constant across the five-year periods.
+
+#+BEGIN_SRC R :var cervmort=tab-cervical-mortality-rates pop=tab-populations-2012 :exports results :results output
+  ages = seq(0,85,by=5)
+  h = apply(cervmort[-nrow(cervmort),-1],1,mean)/1e5
+  distribute5to1 = function(h) c(rep(h,each=5),rep(h[length(h)],100-90+1))
+  h = distribute5to1(h)
+  names(h)=0:100
+  print("Predicted number of cancer deaths (publication=144): ")
+  print(sum(h*pop$Females)) 
+  print("Predicted number of QALYs (publication=1514): ")
+  sum((h*pop$Females)*dle(0:100)) 
+#+END_SRC
+
+#+RESULTS:
+: [1] "Predicted number of cancer deaths (publication=144): "
+: [1] 146.7964
+: [1] "Predicted number of QALYs (publication=1514): "
+: [1] 1520.24
+
+
+#+BEGIN_SRC R :var cerv=tab-incidence-rates mort=tab-cervical-mortality-rates pop=tab-populations-2012 :exports results :results output
+  ages = seq(0,85,by=5)
+  h = apply(cerv[-nrow(cerv),-1],1,mean)/1e5
+  distribute5to1 = function(h) c(rep(h,each=5),rep(h[length(h)],100-90+1))
+  h = distribute5to1(h)
+  names(h)=0:100
+  h2 = apply(mort[-nrow(mort),-1],1,mean)/1e5
+  h2 = distribute5to1(h2)
+  print("Predicted number of incident cancers (publication=448): ")
+  print(sum(h*pop$Females)) 
+  print("Predicted loss of QALYs from cancers (publication=-85): ")
+  sum(h*pop$Females)*-0.080+sum(h2*pop$Females)*-0.34
+#+END_SRC
+
+#+RESULTS:
+: [1] "Predicted number of incident cancers (publication=448): "
+: [1] 471.833
+: [1] "Predicted loss of QALYs from cancers (publication=-85): "
+: [1] -87.6574
+
+Translating from the report, we have: "/The time that the preliminary stages cancer develops is relatively long. For those who would have developed cancer had they not taken part in screening, we have assumed 13 years as the average time in situ (10). Based on this, we have assumed that it will take 5-21 years before a precursor has developed into cervical cancer (average 13 years)./" We have interpreted this as the rate ratios from Table [[tab-primary-hpv]] weighted by values from 5-21 years in the past.
+
+
+#+BEGIN_SRC R :var cerv=tab-incidence-rates mort=tab-cervical-mortality-rates pop=tab-populations-2012 :exports results :results output
+  incRR <- 
+      Vectorize(function(age) {
+          start <- c(0,23,30,50,65,71)
+          values <- c(1,1,.84,.84,.25,1)
+          ages <- max(1,age-5):max(1,age-21)
+          mean(values[findInterval(ages,start)])
+      })
+  ages = seq(0,85,by=5)
+  h = apply(cerv[-nrow(cerv),-1],1,mean)/1e5
+  distribute5to1 = function(h) c(rep(h,each=5),rep(h[length(h)],100-90+1))
+  h = distribute5to1(h)
+  names(h)=0:100
+  h2 = apply(mort[-nrow(mort),-1],1,mean)/1e5
+  h2 = distribute5to1(h2)
+  print("Predicted number of incident cancers (publication=448): ")
+  print(sum(h*pop$Females)) 
+  print("Predicted loss of QALYs from cancers (publication=-85): ")
+  sum(h*pop$Females)*-0.080+sum(h2*pop$Females)*-0.34
+  print("Predicted change in incident cancers with primary HPV (publication=-60): ")
+  print(sum(h*pop$Females*incRR(0:100))-sum(h*pop$Females))
+#+END_SRC
+
+#+RESULTS:
+: [1] "Predicted number of incident cancers (publication=448): "
+: [1] 471.833
+: [1] "Predicted loss of QALYs from cancers (publication=-85): "
+: [1] -87.6574
+: [1] "Predicted change in incident cancers with primary HPV (publication=-60): "
+: [1] -59.1122
+
+
+* Costs
+
+#+CAPTION: Unit costs for various resources that are included in the model (Swedish kronor, 2014 prices)
+#+ATTR_LATEX: :environment longtable
+#+NAME: tab-unit-costs
+| Resource type                                                                    |    SEK |
+|----------------------------------------------------------------------------------+--------|
+| Invitation                                                                       |      7 |
+| Midwifery Visit                                                                  |    160 |
+| Cytology Test                                                                    |    142 |
+| HPV test                                                                         |    142 |
+| Nursing visit                                                                    |    572 |
+| Doctor visits                                                                    |   1108 |
+| Conisation                                                                       |   1640 |
+| Colposcopy *                                                                     |   2881 |
+| Pathology investigation, biopsy provexcision                                     |    363 |
+| Pathology examination, resection cervix                                          |   1452 |
+| CIN 1 treatment *                                                                |   1625 |
+| CIN 2/3-treatment *                                                              |   6282 |
+| Cancer diagnosis and primary treatment *                                         |  84220 |
+| CT abdomen + thorax                                                              |   3090 |
+| MRI uterus                                                                       |   5356 |
+| Hysterectomy                                                                     |  24494 |
+| The radical hysterectomy                                                         | 112934 |
+| Chemotherapy (5 cycles of cisplatin drug infusion visits receiving chemotherapy) |   6398 |
+| Radiotherapy (27 times) *                                                        |   9379 |
+| Patient Hotels (27 days at 898 kr/day)                                           |  24246 |
+| Treatment of advanced cancer (excluding primary treatment) *                     | 779396 |
+
+
+** Indirect costs
+
+#+CAPTION: Loss in productivity due to screening, investigation and treatment
+#+NAME: tab-productivity-loss
+| Category                               | Loss       |
+|----------------------------------------+------------|
+| Midwife visit                          | 1.25 hours |
+| Nurse visit                            | 1.25 hours |
+| Doctor's visit                         | 1.25 hours |
+| Colposcopy                             | 3.75 hours |
+| CIN1 treatment                         | 2.13 hours |
+| CIN2/3 treatment                       | 9.13 hours |
+| Cancer diagnosis and primary treatment | 3 months   |
+| Advanced cancer                        | 1 year     |
+
+#+TODO: How many hours of productivity are lost per month or per year? (45*40=1800?)
+
+
+* Data on males (validation)
+
+#+CAPTION: Swedish mortality rates per 1000 by one-year age groups, males, 2012. 
+#+ATTR_LATEX: :environment longtable
+#+NAME: tab-mortality-rates-males
+| Age |   2012 |
+|-----+--------|
+|   0 |   2.87 |
+|   1 |   0.19 |
+|   2 |   0.15 |
+|   3 |   0.10 |
+|   4 |   0.17 |
+|   5 |   0.09 |
+|   6 |   0.05 |
+|   7 |   0.05 |
+|   8 |   0.15 |
+|   9 |   0.06 |
+|  10 |   0.12 |
+|  11 |   0.10 |
+|  12 |   0.06 |
+|  13 |   0.10 |
+|  14 |   0.12 |
+|  15 |   0.19 |
+|  16 |   0.27 |
+|  17 |   0.33 |
+|  18 |   0.30 |
+|  19 |   0.36 |
+|  20 |   0.44 |
+|  21 |   0.62 |
+|  22 |   0.76 |
+|  23 |   0.56 |
+|  24 |   0.79 |
+|  25 |   0.60 |
+|  26 |   0.94 |
+|  27 |   0.66 |
+|  28 |   0.73 |
+|  29 |   0.70 |
+|  30 |   0.55 |
+|  31 |   0.62 |
+|  32 |   0.62 |
+|  33 |   0.77 |
+|  34 |   0.68 |
+|  35 |   0.72 |
+|  36 |   0.55 |
+|  37 |   0.73 |
+|  38 |   0.89 |
+|  39 |   0.92 |
+|  40 |   1.04 |
+|  41 |   1.02 |
+|  42 |   0.88 |
+|  43 |   1.05 |
+|  44 |   1.42 |
+|  45 |   1.32 |
+|  46 |   1.65 |
+|  47 |   1.80 |
+|  48 |   2.04 |
+|  49 |   2.44 |
+|  50 |   2.09 |
+|  51 |   2.75 |
+|  52 |   2.81 |
+|  53 |   3.70 |
+|  54 |   3.91 |
+|  55 |   4.49 |
+|  56 |   4.79 |
+|  57 |   4.75 |
+|  58 |   5.31 |
+|  59 |   5.88 |
+|  60 |   6.88 |
+|  61 |   7.65 |
+|  62 |   8.30 |
+|  63 |   8.77 |
+|  64 |   9.84 |
+|  65 |  10.80 |
+|  66 |  13.05 |
+|  67 |  13.13 |
+|  68 |  14.04 |
+|  69 |  16.34 |
+|  70 |  18.61 |
+|  71 |  18.25 |
+|  72 |  22.31 |
+|  73 |  26.04 |
+|  74 |  29.14 |
+|  75 |  31.15 |
+|  76 |  35.38 |
+|  77 |  40.55 |
+|  78 |  45.54 |
+|  79 |  49.26 |
+|  80 |  57.86 |
+|  81 |  67.43 |
+|  82 |  73.38 |
+|  83 |  81.88 |
+|  84 |  93.81 |
+|  85 | 105.76 |
+|  86 | 120.82 |
+|  87 | 135.29 |
+|  88 | 151.61 |
+|  89 | 166.12 |
+|  90 | 195.53 |
+|  91 | 204.28 |
+|  92 | 231.83 |
+|  93 | 247.87 |
+|  94 | 263.40 |
+|  95 | 297.73 |
+|  96 | 323.22 |
+|  97 | 350.01 |
+|  98 | 378.05 |
+|  99 | 407.29 |
+| 100 | 437.65 |
+| 101 | 469.07 |
+| 102 | 501.43 |
+| 103 | 534.62 |
+| 104 | 568.51 |
+| 105 | 602.91 |
+| 106 | 637.65 |
+| 107 | 672.47 |
+| 108 | 707.10 |
+| 109 | 741.22 |
+| 110 | 774.48 |
+
+#+BEGIN_SRC R :var mort=tab-mortality-rates-males :exports both :results output
+  ages = mort$Age
+  gamma = 0.03
+  discount = 1/(1+gamma)
+  hall = apply(mort[,-1,drop=FALSE],1,mean) / 1000
+  Sall = exp(-cumsum(hall))
+  print(sum(Sall)) # life expectancy
+  dle = function(age,ages=0:110,h=hall,S=Sall) {
+      index = (ages>=age)
+      h = h[index]
+      S = exp(-cumsum(h))
+      ages = ages[index]
+      dages = ages - age # is this correct?
+      sum((c(1,S[-length(S)])*utilFun(ages,"Males")*discount^dages-S*utilFun(ages,"Males")*discount^(dages+1))/(h+log(1+gamma)))
+  }
+  dle = Vectorize(dle)
+  print(data.frame(age=c(50,60,70,80),QALY_loss=dle(10+c(50,60,70,80))))
+#+END_SRC
+
+#+RESULTS:
+: [1] 79.6212
+:   age QALY_loss
+: 1  50 12.828026
+: 2  60  8.974917
+: 3  70  5.168537
+: 4  80  2.690381
+
+
+#+BEGIN_SRC R :exports both :results output graphics :file ihe-expect-utilities-males.png
+  plot(0:100,dle(0:100),type="l",xlab="Age (years)", ylab="Conditional discounted life expectancy (years)")
+#+END_SRC
+
+#+RESULTS:
+[[file:ihe-expect-utilities-males.png]]
+
+
